@@ -14,6 +14,7 @@ import (
 )
 
 const apiURL string = "https://api.rach.io/1"
+var accessToken string
 var debug bool = true
 
 
@@ -354,11 +355,10 @@ func getSchedule(id string) (deviceSchedule, error) {
 }
 
 func main() {
-	var authtoken string
 	var config *globalconf.GlobalConf
 	var err error
 
-	flag.StringVar(&authtoken, "authtoken", "", "OAuth2 token")
+	flag.StringVar(&accessToken, "accessToken", "", "OAuth2 token")
 	flag.Parse()
 	// read confg
         if config, err = globalconf.New("rachio"); err != nil {
