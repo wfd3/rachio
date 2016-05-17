@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	 "flag"
+	"flag"
         "github.com/rakyll/globalconf"
 )
 
@@ -157,7 +157,7 @@ type scheduleRules struct {
 	Enabled bool `json:"enabled"`
 	TotalDuration int `json:"totalDuration"`
 	WeatherIntelligenceSensitivity float64 `json:"weatherIntelligenceSensitivity"`
-	SeasonalAdjustment int `json:"seasonalAdjustment"`
+	SeasonalAdjustment float64 `json:"seasonalAdjustment"`
 	TotalDurationNoCycle int `json:"totalDurationNoCycle"`
 	Cycles int `json:"cycles"`
 	ExternalName string `json:"externalName"`
@@ -189,7 +189,7 @@ func doHTTP(method string, rawurl string, v url.Values, s interface{}) (err erro
 		debugf("http.NewRequest error: %s\n", err)
 		os.Exit(1)
 	}
-	req.Header.Add("Authorization", accessToken)
+	req.Header.Add("Authorization", "Bearer " + accessToken)
 
 	fmt.Printf("%+v\n", req)
 
@@ -220,6 +220,7 @@ func doHTTP(method string, rawurl string, v url.Values, s interface{}) (err erro
 		fmt.Printf("Unexpected value: %s\n", (*jerr).Value)
 		fmt.Printf("Unexpected type: %v\n", (*jerr).Type)
 		fmt.Printf("Offset: %d\n", (*jerr).Offset)
+		ioutil.WriteFile("HTTP_ERROR", r, 0666)
 		os.Exit(1)
 	}
 	return err
@@ -281,6 +282,8 @@ func Devices() {
 	var dinfo deviceInfo
 	var err error
 	var sr scheduleRules
+	var t string
+	var dur time.Duration
 	
 	for  i,d := range pinfo.Devices {
 		fmt.Printf("Device %d:\n", i)
@@ -296,48 +299,14 @@ func Devices() {
 		for j,s := range dinfo.ScheduleRules {
 			fmt.Printf("ScheduleRule %d: %s id %s\n", j, s.Name, s.ID)
 			sr, err = getScheduleRules(s.ID)
-			fmt.Printf("\tSchedule '%s': start %d, total duration %d, enabled %t\n", sr.Name, sr.StartDate, sr.TotalDuration, sr.Enabled)
+			t = time.Unix(sr.StartDate, 0).Local().Format(time.UnixDate)
+			dur = time.Duration(sr.TotalDuration) * time.Second
+			fmt.Printf("** \tSchedule '%s': start %s, total duration: %s, enabled: %t\n", sr.Name, t, dur, sr.Enabled)
+			fmt.Printf("** \tSchedule '%s': start %d, total duration: %d, enabled: %t\n", sr.Name, sr.StartDate, sr.TotalDuration, sr.Enabled)
 			for _, r := range sr.Zones {
 				fmt.Printf("\t\tZone %d: %d\n", r.ZoneNumber, r.Duration)
+				//fmt.Printf("\t\tZone %d: %s\n", r.ZoneNumber, time.Duration(r.Duration) * time.Second)
 			}
-		}
-	}
-}
-
-func Devices_OLD() {
-	var dinfo deviceInfo
-	var dsched deviceSchedule
-	var err error
-	
-	for  i,d := range pinfo.Devices {
-		fmt.Printf("Device %d:\n", i)
-		fmt.Printf("\tDevice ID: %s\n\tName: %s\n\tStatus: %s\n\tEnabled: %t\n", d.ID, d.Name,  d.Status, d.Enabled)
-
-		dinfo, err = getDevice(d.ID)
-		if err != nil {
-			debugf("\t\tDevices: %s\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("\t\tID: %s\n", dinfo.ID)
-		for j,s := range dinfo.ScheduleRules {
-			fmt.Printf("ScheduleRule %d: %s id %s\n", j, s.Name, s.ID)
-		}
-		for _,z := range dinfo.Zones {
-			fmt.Printf("\t\tZone %d, Name %s, ID %s\n", z.ZoneNumber, z.Name, z.ID)
-		}
-
-
-		if err != nil {
-			debugf("getSchedule: %s\n", err)
-			os.Exit(1)
-		}
-
-		for _, s := range dsched {
-			fmt.Printf("\t\tStart: %d, duration %d\n", s.StartDate, s.TotalDuration/60)
-			for _, z := range s.Zones {
-				fmt.Printf("\t\t\tZone %d, %d minutes\n", z.ZoneNumber, z.Duration/60)
-			}
-			
 		}
 	}
 }
@@ -355,19 +324,35 @@ func getSchedule(id string) (deviceSchedule, error) {
 }
 
 func main() {
-	var config *globalconf.GlobalConf
+
+	var conf *globalconf.GlobalConf
 	var err error
 
 	flag.StringVar(&accessToken, "accessToken", "", "OAuth2 token")
+	flag.BoolVar(&debug, "D", debug, "Debugging enabled")
 	flag.Parse()
+
 	// read confg
-        if config, err = globalconf.New("rachio"); err != nil {
+        if conf, err = globalconf.New("rachio"); err != nil {
                 fmt.Printf("Error: %s\n", err)
                 os.Exit(1)
         }
-        config.ParseAll()
+        conf.ParseAll()
+
+/*	debugf("accessToken = %s\n", accessToken)
+	if accessToken == "" {
+		fmt.Println("Error: no accessToken provided")
+		os.Exit(1)
+	}
 	
 	Person()
 	PersonInfo()
 	Devices()
+*/
+	var s int64
+	s = 1463382000000  // 5am
+	t := time.Unix(s,0)
+	fmt.Println(t.Format(time.UnixDate))
+	d := time.Duration(s) * time.Microsecond
+	fmt.Println(d)
 }
