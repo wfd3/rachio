@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	 "flag"
+        "github.com/rakyll/globalconf"
 )
 
 const accessToken string = "Bearer 9dbe74f4-f982-4c44-8923-29614f3335fa"
@@ -353,6 +355,19 @@ func getSchedule(id string) (deviceSchedule, error) {
 }
 
 func main() {
+	var authtoken string
+	var config *globalconf.GlobalConf
+	var err error
+
+	flag.StringVar(&authtoken, "authtoken", "", "OAuth2 token")
+	flag.Parse()
+	// read confg
+        if config, err = globalconf.New("rachio"); err != nil {
+                fmt.Printf("Error: %s\n", err)
+                os.Exit(1)
+        }
+        config.ParseAll()
+	
 	Person()
 	PersonInfo()
 	Devices()
