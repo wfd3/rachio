@@ -15,8 +15,8 @@ import (
 
 const apiURL string = "https://api.rach.io/1"
 var accessToken string
-var debug bool = true
-
+var debug bool = false
+var http_runs int = 0
 
 type personID struct {
 	Id string `json:"id"`
@@ -125,8 +125,10 @@ type deviceInfo struct {
 }
 var dinfo deviceInfo
 
-type deviceSchedule []struct {
-	StartDate int64 `json:"startDate"`
+type scheduleItem []struct { // /public/device/:id/scheduleitem
+	Date int64 `json:"date"`
+	StartHour int `json:"startHour"`
+	StartMinute int `json:"startMinute"`
 	Zones []struct {
 		ZoneID string `json:"zoneId"`
 		ZoneNumber int `json:"zoneNumber"`
@@ -134,12 +136,13 @@ type deviceSchedule []struct {
 		SortOrder int `json:"sortOrder"`
 	} `json:"zones"`
 	ScheduleRuleID string `json:"scheduleRuleId"`
-	CycleSoak bool `json:"cycleSoak"`
 	TotalDuration int `json:"totalDuration"`
+	ScheduleType string `json:"scheduleType"`
+	AbsoluteStartDate int64 `json:"absoluteStartDate"`
+	Iso8601Date time.Time `json:"iso8601Date"`
 }
-var dsched deviceSchedule
 
-type scheduleRules struct {
+type scheduleRules struct { // /public/device/schedulerules/:id
 	ID string `json:"id"`
 	Zones []struct {
 		ZoneID string `json:"zoneId"`
@@ -182,7 +185,7 @@ func doHTTP(method string, rawurl string, v url.Values, s interface{}) (err erro
 
 	u, _ := url.Parse(rawurl)
 	u.RawQuery = v.Encode()
-	debugf("doHTTP: %s, %s\n", method, u)
+	debugf("doHTTP() request: %s, %s\n", method, u)
 	
 	req, err := http.NewRequest(method, u.String(), nil);
 	if err != nil {
@@ -191,7 +194,7 @@ func doHTTP(method string, rawurl string, v url.Values, s interface{}) (err erro
 	}
 	req.Header.Add("Authorization", "Bearer " + accessToken)
 
-	fmt.Printf("%+v\n", req)
+	debugf("doHTTP() response: %+v\n", req)
 
 	t := time.Now()
 	if res, err = c.Do(req); err != nil {
@@ -211,7 +214,12 @@ func doHTTP(method string, rawurl string, v url.Values, s interface{}) (err erro
 		return err
 	}
 
-//	fmt.Printf("%+v\n", r)
+	//	fmt.Printf("%+v\n", r)
+/*
+	http_runs++
+	str := "o/out" + strconv.Itoa(http_runs)
+	ioutil.WriteFile(str, r, 0666)
+*/
 
 	err =  json.Unmarshal(r, s)
 	if err != nil {
@@ -233,6 +241,7 @@ func doGet(rawurl string, v url.Values, s interface{}) (err error) {
 func Person () {
 	var v url.Values 
 
+	debugf("**** Person()\n")
 	err := doGet(apiURL+"/public/person/info", v, &p)
 	if err != nil {
 		debugf("doGet: %s\n", err)
@@ -244,6 +253,7 @@ func Person () {
 func PersonInfo() {
 	var v url.Values
 	
+	debugf("**** PersonInfo()\n")	
 	err := doGet(apiURL+"/public/person/"+p.String(), v, &pinfo)
 	if err != nil {
 		debugf("doGet: %s\n", err)
@@ -257,6 +267,7 @@ func getDevice(id string) (deviceInfo, error) {
 	var d deviceInfo
 	var v url.Values
 
+	debugf("**** getDevice()\n")
 	err := doGet(apiURL+"/public/device/"+id, v, &d)
 	if err != nil {
 		debugf("doGet: %s\n", err)
@@ -270,6 +281,7 @@ func getScheduleRules(id string) (scheduleRules, error) {
 	var d scheduleRules
 	var v url.Values
 
+	debugf("**** getScheduleRules\n")
 	err := doGet(apiURL+"/public/schedulerule/"+id, v, &d)
 	if err != nil {
 		debugf("doGet: %s\n", err)
@@ -278,43 +290,11 @@ func getScheduleRules(id string) (scheduleRules, error) {
 	return d, err
 }
 
-func Devices() {
-	var dinfo deviceInfo
-	var err error
-	var sr scheduleRules
-	var t string
-	var dur time.Duration
-	
-	for  i,d := range pinfo.Devices {
-		fmt.Printf("Device %d:\n", i)
-		fmt.Printf("\tDevice ID: %s\n\tName: %s\n\tStatus: %s\n\tEnabled: %t\n", d.ID, d.Name,  d.Status, d.Enabled)
-
-		dinfo, err = getDevice(d.ID)
-		if err != nil {
-			debugf("\t\tDevices: %s\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("\t\tID: %s\n", dinfo.ID)
-
-		for j,s := range dinfo.ScheduleRules {
-			fmt.Printf("ScheduleRule %d: %s id %s\n", j, s.Name, s.ID)
-			sr, err = getScheduleRules(s.ID)
-			t = time.Unix(sr.StartDate, 0).Local().Format(time.UnixDate)
-			dur = time.Duration(sr.TotalDuration) * time.Second
-			fmt.Printf("** \tSchedule '%s': start %s, total duration: %s, enabled: %t\n", sr.Name, t, dur, sr.Enabled)
-			fmt.Printf("** \tSchedule '%s': start %d, total duration: %d, enabled: %t\n", sr.Name, sr.StartDate, sr.TotalDuration, sr.Enabled)
-			for _, r := range sr.Zones {
-				fmt.Printf("\t\tZone %d: %d\n", r.ZoneNumber, r.Duration)
-				//fmt.Printf("\t\tZone %d: %s\n", r.ZoneNumber, time.Duration(r.Duration) * time.Second)
-			}
-		}
-	}
-}
-
-func getSchedule(id string) (deviceSchedule, error) {
-	var d deviceSchedule
+func getScheduleItem(id string) (scheduleItem, error) {
+	var d scheduleItem
 	var v url.Values
 
+	debugf("**** getScheduleItem\n")
 	err := doGet(apiURL+"/public/device/"+id+"/scheduleitem", v, &d)
 	if err != nil {
 		debugf("doGet: %s\n", err)
@@ -323,10 +303,92 @@ func getSchedule(id string) (deviceSchedule, error) {
 	return d, err
 }
 
+func jobTypes(jobTypes []string) (string) {
+	var r string
+	for _, s := range jobTypes {
+		switch s {
+		case "DAY_OF_WEEK_0": r += "Sunday"
+		case "DAY_OF_WEEK_1": r += "Monday"
+		case "DAY_OF_WEEK_2": r += "Tuesday"
+		case "DAY_OF_WEEK_3": r += "Wednesday"
+		case "DAY_OF_WEEK_4": r += "Thursday"
+		case "DAY_OF_WEEK_5": r += "Friday"
+		case "DAY_OF_WEEK_6": r += "Saturday"
+		case "ODD": r += "Odd Days"
+		case "EVEN": r += "Even"
+		case "INTERVAL_1": r += "Every 1 day"
+		case "INTERVAL_2": r += "Every 2 days"
+		case "INTERVAL_3": r += "Every 3 days"
+		case "INTERVAL_4": r += "Every 4 days"
+		case "INTERVAL_5": r += "Every 5 days"
+		case "INTERVAL_6": r += "Every 6 days"
+		case "INTERVAL_7": r += "Every 7 days"
+		case "INTERVAL_8": r += "Every 8 days"
+		case "INTERVAL_9": r += "Every 9 days"
+		case "INTERVAL_10": r += "Every 10 days"
+		case "INTERVAL_11": r += "Every 11 days"
+		case "INTERVAL_12": r += "Every 12 days"
+		case "INTERVAL_13": r += "Every 13 days"
+		case "INTERVAL_14": r += "Every 14 days"
+		case "INTERVAL_15": r += "Every 15 days"
+		case "INTERVAL_16": r += "Every 16 days"
+		case "INTERVAL_17": r += "Every 17 days"
+		case "INTERVAL_18": r += "Every 18 days"
+		case "INTERVAL_19": r += "Every 19 days"
+		case "INTERVAL_20": r += "Every 20 days"
+		case "INTERVAL_21": r += "Every 21 days"
+		case "ANY": r += "Any day of the week"
+		default: r += "UNKNOWN (" + s + ")"
+		}
+		r += ", "
+	}
+	return r
+}
+
+func showSched() {
+	var err error
+
+	seen := make(map[string]bool)
+
+	// for each device, find 
+	for  i,d := range pinfo.Devices {
+		fmt.Printf("Device %d:\n", i)
+		fmt.Printf("Device ID: %s\nName: %s\nStatus: %s\nEnabled: %t\n", d.ID, d.Name,  d.Status, d.Enabled)
+		si, _ := getScheduleItem(d.ID)
+		if err != nil {
+			fmt.Printf("getSchedule: %s\n", err)
+			os.Exit(1)
+		}
+		for _, isi := range si {
+			if !seen[isi.ScheduleRuleID] {
+				var dur int64
+				seen[isi.ScheduleRuleID] = true
+				sr, _ := getScheduleRules(isi.ScheduleRuleID)
+				fmt.Printf("\t\tSchedule name: %s, ScheduleRuleID: %s, enabled: %t\n", sr.Name, sr.ID, sr.Enabled)
+				fmt.Printf("\t\t\tStart time: %02d:%02d\n", isi.StartHour, isi.StartMinute)
+				fmt.Printf("\t\t\tISODate: %s\n", isi.Iso8601Date.Local())
+				t := time.Unix(isi.AbsoluteStartDate / int64(time.Microsecond), 0)
+				fmt.Printf("\t\t\tAbsolute Start Date: %s\n", t.Local().Format(time.UnixDate))
+				fmt.Printf("\t\t\tScheduleJobTypes: %s\n", jobTypes(sr.ScheduleJobTypes));
+				fmt.Printf("\t\t\tTotal duration %s, Schedule Type %s\n",
+					time.Duration(isi.TotalDuration) * time.Second,	isi.ScheduleType)
+				for _, z := range isi.Zones {
+					fmt.Printf("\t\t\t\tZone %d: duration %s, sort order %d\n", z.ZoneNumber,
+						time.Duration(z.Duration) * time.Second, z.SortOrder)
+					dur += int64(z.Duration)
+				}
+				fmt.Printf("\t\t\tComputed duration: %s\n", time.Duration(dur) * time.Second)
+			}
+		}
+		fmt.Println("---------------------------------------------------------")
+	}
+}
+
 func main() {
 
 	var conf *globalconf.GlobalConf
 	var err error
+	
 
 	flag.StringVar(&accessToken, "accessToken", "", "OAuth2 token")
 	flag.BoolVar(&debug, "D", debug, "Debugging enabled")
@@ -339,7 +401,7 @@ func main() {
         }
         conf.ParseAll()
 
-/*	debugf("accessToken = %s\n", accessToken)
+	debugf("accessToken = %s\n", accessToken)
 	if accessToken == "" {
 		fmt.Println("Error: no accessToken provided")
 		os.Exit(1)
@@ -347,12 +409,23 @@ func main() {
 	
 	Person()
 	PersonInfo()
-	Devices()
-*/
+	showSched()
+
+/*
 	var s int64
-	s = 1463382000000  // 5am
+	s = 1463382000000 / int64(time.Microsecond) // 5am
 	t := time.Unix(s,0)
 	fmt.Println(t.Format(time.UnixDate))
 	d := time.Duration(s) * time.Microsecond
 	fmt.Println(d)
+
+	tz, err := time.LoadLocation("US/Mountain")
+	if err != nil {
+		fmt.Printf("LoadLocation(): %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Println(tz)
+	t = t.In(tz)
+	fmt.Println(t.Format(time.UnixDate))	
+*/
 }

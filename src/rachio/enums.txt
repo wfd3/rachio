@@ -1,0 +1,32 @@
+DAY_OF_WEEK_0(Type.DAY_OF_WEEK), // SUNDAY
+DAY_OF_WEEK_1(Type.DAY_OF_WEEK), // MONDAY
+DAY_OF_WEEK_2(Type.DAY_OF_WEEK), // TUESDAY
+DAY_OF_WEEK_3(Type.DAY_OF_WEEK), // WEDNESDAY
+DAY_OF_WEEK_4(Type.DAY_OF_WEEK), // THURSDAY
+DAY_OF_WEEK_5(Type.DAY_OF_WEEK), // FRIDAY
+DAY_OF_WEEK_6(Type.DAY_OF_WEEK), // SATURDAY
+ODD(Type.ODD_OR_EVEN), // Run only on odd days
+EVEN(Type.ODD_OR_EVEN), // Run only on even days
+INTERVAL_1(Type.INTERVAL), // run frequency - every 1 days
+INTERVAL_2(Type.INTERVAL), // run frequency - every 2 days
+INTERVAL_3(Type.INTERVAL), // run frequency - every 3 days
+INTERVAL_4(Type.INTERVAL), // run frequency - every 4 days
+INTERVAL_5(Type.INTERVAL), // run frequency - every 5 days
+INTERVAL_6(Type.INTERVAL), // run frequency - every 6 days
+INTERVAL_7(Type.INTERVAL), // run frequency - every 7 days,
+INTERVAL_8(Type.INTERVAL),
+INTERVAL_9(Type.INTERVAL),
+INTERVAL_10(Type.INTERVAL),
+INTERVAL_11(Type.INTERVAL),
+INTERVAL_12(Type.INTERVAL),
+INTERVAL_13(Type.INTERVAL),
+INTERVAL_14(Type.INTERVAL),
+INTERVAL_15(Type.INTERVAL),
+INTERVAL_16(Type.INTERVAL),
+INTERVAL_17(Type.INTERVAL),
+INTERVAL_18(Type.INTERVAL),
+INTERVAL_19(Type.INTERVAL),
+INTERVAL_20(Type.INTERVAL),
+INTERVAL_21(Type.INTERVAL),
+ANY(Type.ANY); // Any day of the week
+
